@@ -400,7 +400,7 @@ export class GitLabProvider implements IssueProvider {
   async reactToIssue(issueId: number, emoji: string): Promise<void> {
     try {
       await this.glab([
-        "api", `projects/:id/work_items//award_emoji`,
+        "api", `projects/:id/work_items/${issueId}/award_emoji`,
         "--method", "POST",
         "--field", `name=${emoji}`,
       ]);
@@ -409,7 +409,7 @@ export class GitLabProvider implements IssueProvider {
 
   async issueHasReaction(issueId: number, emoji: string): Promise<boolean> {
     try {
-      const raw = await this.glab(["api", `projects/:id/work_items//award_emoji`]);
+      const raw = await this.glab(["api", `projects/:id/work_items/${issueId}/award_emoji`]);
       const emojis = JSON.parse(raw) as Array<{ name: string }>;
       return emojis.some((e) => e.name === emoji);
     } catch { return false; }
