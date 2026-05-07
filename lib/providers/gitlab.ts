@@ -52,7 +52,9 @@ export class GitLabProvider implements IssueProvider {
   /** Get MRs linked to an issue via GitLab's native related_merge_requests API. */
   private async getRelatedMRs(issueId: number): Promise<GitLabMR[]> {
     try {
-      const raw = await this.glab(["api", `projects/:id/issues/${issueId}/related_merge_requests`, "--paginate"]);
+      // MIGRATION: Using GitLab's work_items API instead of legacy issues API
+      // https://docs.gitlab.com/ee/api/work_items.html#list-related-merge-requests-to-an-issue
+      const raw = await this.glab(["api", `projects/:id/work_items/${issueId}/related_merge_requests`, "--paginate"]);
       if (!raw) return [];
       return JSON.parse(raw) as GitLabMR[];
     } catch { return []; }
@@ -123,7 +125,9 @@ export class GitLabProvider implements IssueProvider {
 
   async listComments(issueId: number): Promise<IssueComment[]> {
     try {
-      const raw = await this.glab(["api", `projects/:id/issues/${issueId}/notes`, "--paginate"]);
+      // MIGRATION: Using GitLab's work_items API instead of legacy issues API
+      // Notes are stored at the same path but under work_items endpoints now
+      const raw = await this.glab(["api", `projects/:id/work_items/${issueId}/notes`, "--paginate"]);
       const notes = JSON.parse(raw) as Array<{ id: number; author: { username: string }; body: string; created_at: string; system: boolean }>;
       // Filter out system notes (e.g. "changed label", "closed issue")
       return notes
@@ -273,6 +277,8 @@ export class GitLabProvider implements IssueProvider {
     mrIid: number,
   ): Promise<Array<{ id: number; author: { username: string }; body: string; created_at: string }>> {
     try {
+      // MIGRATION: Using GitLab's work_items API instead of legacy issues API
+      // MR notes endpoints follow the same pattern as issue/work_items notes
       const raw = await this.glab(["api", `projects/:id/merge_requests/${mrIid}/notes`]);
       const all = JSON.parse(raw) as Array<{ id: number; author: { username: string }; system: boolean; body: string; created_at: string }>;
       return all.filter(
@@ -380,8 +386,9 @@ export class GitLabProvider implements IssueProvider {
   }
 
   async addComment(issueId: number, body: string): Promise<number> {
+    // MIGRATION: Using GitLab's work_items API instead of legacy issues API
     const raw = await this.glab([
-      "api", `projects/:id/issues/${issueId}/notes`,
+      "api", `projects/:id/work_items/${issueId}/notes`,
       "--method", "POST",
       "--field", `body=${body}`,
     ]);
@@ -399,8 +406,9 @@ export class GitLabProvider implements IssueProvider {
    */
   async reactToIssue(issueId: number, emoji: string): Promise<void> {
     try {
+      // MIGRATION: Using GitLab's work_items API instead of legacy issues API
       await this.glab([
-        "api", `projects/:id/issues/${issueId}/award_emoji`,
+        "api", `projects/:id/work_items/${issueId}/award_emoji`,
         "--method", "POST",
         "--field", `name=${emoji}`,
       ]);
@@ -409,7 +417,9 @@ export class GitLabProvider implements IssueProvider {
 
   async issueHasReaction(issueId: number, emoji: string): Promise<boolean> {
     try {
-      const raw = await this.glab(["api", `projects/:id/issues/${issueId}/award_emoji`]);
+      // MIGRATION: Using GitLab's work_items API instead of legacy issues API
+      // https://docs.gitlab.com/ee/api/work_items.html#get-award-emoji-for-issue
+      const raw = await this.glab(["api", `projects/:id/work_items/${issueId}/award_emoji`]);
       const emojis = JSON.parse(raw) as Array<{ name: string }>;
       return emojis.some((e) => e.name === emoji);
     } catch { return false; }
@@ -441,8 +451,10 @@ export class GitLabProvider implements IssueProvider {
 
   async reactToIssueComment(issueId: number, commentId: number, emoji: string): Promise<void> {
     try {
+      // MIGRATION: Using GitLab's work_items API instead of legacy issues API
+      // Note reactions are stored on the work_item (issue), not on a separate endpoint
       await this.glab([
-        "api", `projects/:id/issues/${issueId}/notes/${commentId}/award_emoji`,
+        "api", `projects/:id/work_items/${issueId}/notes/${commentId}/award_emoji`,
         "--method", "POST",
         "--field", `name=${emoji}`,
       ]);
@@ -469,7 +481,9 @@ export class GitLabProvider implements IssueProvider {
 
   async issueCommentHasReaction(issueId: number, commentId: number, emoji: string): Promise<boolean> {
     try {
-      const raw = await this.glab(["api", `projects/:id/issues/${issueId}/notes/${commentId}/award_emoji`]);
+      // MIGRATION: Using GitLab's work_items API instead of legacy issues API
+      // Note reactions are stored on the work_item (issue), not on a separate endpoint
+      const raw = await this.glab(["api", `projects/:id/work_items/${issueId}/notes/${commentId}/award_emoji`]);
       const emojis = JSON.parse(raw) as Array<{ name: string }>;
       return emojis.some((e) => e.name === emoji);
     } catch { return false; }
